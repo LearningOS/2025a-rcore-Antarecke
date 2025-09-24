@@ -137,6 +137,7 @@ impl DiskInode {
         Self::total_blocks(new_size) - Self::total_blocks(self.size)
     }
     /// Get id of block given inner id
+    /// 指定文件数据块的索引号 inner_id，查其磁盘块号 block_id
     pub fn get_block_id(&self, inner_id: u32, block_device: &Arc<dyn BlockDevice>) -> u32 {
         let inner_id = inner_id as usize;
         if inner_id < INODE_DIRECT_COUNT {
@@ -309,6 +310,8 @@ impl DiskInode {
         v
     }
     /// Read data from current disk inode
+    /// 从文件的指定偏移处将数据读到指定 u8 切片中；
+    /// 读取起始位置 >= 结束位置时返回 0；(右端) 只读取文件的有效范围。
     pub fn read_at(
         &self,
         offset: usize,
@@ -350,6 +353,7 @@ impl DiskInode {
     }
     /// Write data into current disk inode
     /// size must be adjusted properly beforehand
+    /// <!> 需保证写入的切片右边界小于文件右边界，否则提前 increase_size 保证写入完整性
     pub fn write_at(
         &mut self,
         offset: usize,
@@ -389,6 +393,8 @@ impl DiskInode {
     }
 }
 /// A directory entry
+/// 目录项作为目录型 DiskInode 的数据存放于 DiskInode 的数据块中，由此可见目录也是文件；
+/// 目录项用 inode_id (inode 区索引号) 记录该目录项的 inode
 #[repr(C)]
 pub struct DirEntry {
     name: [u8; NAME_LENGTH_LIMIT + 1],

@@ -29,19 +29,20 @@ impl Inode {
             block_device,
         }
     }
-    /// Call a function over a disk inode to read it
+    /// Call a function over a disk inode (自己的 DiskInode) to read it
     fn read_disk_inode<V>(&self, f: impl FnOnce(&DiskInode) -> V) -> V {
         get_block_cache(self.block_id, Arc::clone(&self.block_device))
             .lock()
             .read(self.block_offset, f)
     }
-    /// Call a function over a disk inode to modify it
+    /// Call a function over a disk inode (自己的 DiskInode) to modify it
     fn modify_disk_inode<V>(&self, f: impl FnOnce(&mut DiskInode) -> V) -> V {
         get_block_cache(self.block_id, Arc::clone(&self.block_device))
             .lock()
             .modify(self.block_offset, f)
     }
     /// Find inode under a disk inode by name
+    /// 在指定目录型 DiskInode 下查指定文件名的目录项的 DiskInode 编号
     fn find_inode_id(&self, name: &str, disk_inode: &DiskInode) -> Option<u32> {
         // assert it is a directory
         assert!(disk_inode.is_dir());
@@ -59,6 +60,7 @@ impl Inode {
         None
     }
     /// Find inode under current inode by name
+    /// <!> 只被根目录 Inode 调用
     pub fn find(&self, name: &str) -> Option<Arc<Inode>> {
         let fs = self.fs.lock();
         self.read_disk_inode(|disk_inode| {
@@ -91,6 +93,8 @@ impl Inode {
         disk_inode.increase_size(new_size, v, &self.block_device);
     }
     /// Create inode under current inode by name
+    /// <!> 只被根目录 Inode 调用
+    /// 为新文件分配新 DiskInode 并初始化；将新文件的目录项插入进根目录 (自己的 DiskInode) 的数据中
     pub fn create(&self, name: &str) -> Option<Arc<Inode>> {
         let mut fs = self.fs.lock();
         let op = |root_inode: &DiskInode| {
@@ -139,6 +143,7 @@ impl Inode {
         // release efs lock automatically by compiler
     }
     /// List inodes under current inode
+    /// <!> 只被根目录 Inode 调用
     pub fn ls(&self) -> Vec<String> {
         let _fs = self.fs.lock();
         self.read_disk_inode(|disk_inode| {
@@ -156,11 +161,13 @@ impl Inode {
         })
     }
     /// Read data from current inode
+    /// DiskInode::read_at 的封装
     pub fn read_at(&self, offset: usize, buf: &mut [u8]) -> usize {
         let _fs = self.fs.lock();
         self.read_disk_inode(|disk_inode| disk_inode.read_at(offset, buf, &self.block_device))
     }
     /// Write data to current inode
+    /// DiskInode::write_at 的封装 + 自动扩容
     pub fn write_at(&self, offset: usize, buf: &[u8]) -> usize {
         let mut fs = self.fs.lock();
         let size = self.modify_disk_inode(|disk_inode| {
@@ -171,6 +178,8 @@ impl Inode {
         size
     }
     /// Clear the data in current inode
+    /// 回收文件的索引块和数据块
+    /// e.g. 当带有 CREATE 标志打开已存在文件时，需先清空文件
     pub fn clear(&self) {
         let mut fs = self.fs.lock();
         self.modify_disk_inode(|disk_inode| {

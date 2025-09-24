@@ -75,6 +75,8 @@ pub fn sys_close(fd: usize) -> isize {
     0
 }
 
+/// [INFO] CH6
+/// 获取文件状态
 /// YOUR JOB: Implement fstat.
 pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     trace!(
@@ -84,15 +86,27 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     -1
 }
 
+/// [INFO] CH6
+/// 创建一个文件的一个硬链接
+/// ! 不考虑新文件路径已经存在的情况
 /// YOUR JOB: Implement linkat.
 pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_linkat",
         current_task().unwrap().pid.0
     );
+    let token = current_user_token();
+    let old_name = translated_str(token, _old_name);
+    let new_name = translated_str(token, _new_name);
+    if old_name == new_name {
+        return -1
+    }
+
     -1
 }
 
+/// [INFO] CH6
+/// 取消一个文件路径到文件的链接
 /// YOUR JOB: Implement unlinkat.
 pub fn sys_unlinkat(_name: *const u8) -> isize {
     trace!(
