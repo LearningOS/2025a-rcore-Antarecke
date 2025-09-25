@@ -216,6 +216,10 @@ impl Inode {
                     &self.block_device,
                 );
             });
+            let the_inode = self.find(old_name).unwrap();
+            the_inode.modify_disk_inode(|the_disk_inode| {
+                the_disk_inode.nlink += 1;
+            });
             block_cache_sync_all();
             return 0;
         }
@@ -223,14 +227,60 @@ impl Inode {
     }
 
     /// [INFO] CH6
+    /// 将目录项置空
     /// <!> 只被根目录 Inode 调用
+    /// <!> 功能不完全：
+    ///     Inode 未实现删除文件，其中根目录新加目录项时是在数据队尾 append，而非找到空位置插入。
+    ///     这里删除目录项仅将指定目录项置为 empty()，该空洞不会被分配给新的目录项
     pub fn unlinkat(&self, name: &str) -> isize {
-        if let Some(the_inode_id) = self.read_disk_inode(
-            |disk_inode| { self.find_inode_id(name, disk_inode) }
-        ) {
+        let the_inode = self.find(name).unwrap();
 
+        let r = self.modify_disk_inode(|root_inode| {
+            let file_count = (root_inode.size as usize) / DIRENT_SZ;
+            // 查根目录所有目录项
+            for i in 0..file_count {
+                let mut tmp_dirent = DirEntry::empty();
+                // 从 inode 里读出第 i 个目录项
+                root_inode.read_at(
+                    i * DIRENT_SZ,
+                    tmp_dirent.as_bytes_mut(),  // 读入到 tmp_dirent
+                    &self.block_device,
+                );
+                if tmp_dirent.name() == name {
+                    root_inode.write_at(
+                        i * DIRENT_SZ,
+                        DirEntry::empty().as_bytes(),
+                        &self.block_device,
+                    );
+                    return 0;
+                }
+            }
+            -1
+        });
+
+        // 若 nlink 归零，则删除+回收文件
+        let nlink = the_inode.modify_disk_inode(|disk_inode| {
+            disk_inode.nlink -= 1;
+            disk_inode.nlink
+        });
+        if nlink == 0 {
+            the_inode.clear();
         }
+        block_cache_sync_all();
+        r
+    }
 
-        -1
+    /// [INFO] CH6
+    /// 获取文件状态信息：inode_id, nlink, is_file
+    pub fn get_stat(&self)
+        -> (
+            u64, // inode_id
+            u32, // nlink
+            bool // is_file
+        )
+    {
+        let fs = self.fs.lock();
+        let inode_id = fs.cal_inode_id(self.block_id, self.block_offset);
+        self.read_disk_inode(|disk_inode| (inode_id as u64, disk_inode.nlink, disk_inode.is_file()))
     }
 }

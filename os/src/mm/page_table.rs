@@ -244,6 +244,7 @@ impl UserBuffer {
 impl IntoIterator for UserBuffer {
     type Item = *mut u8;
     type IntoIter = UserBufferIterator;
+    // 以 u8 为粒度的迭代器
     fn into_iter(self) -> Self::IntoIter {
         UserBufferIterator {
             buffers: self.buffers,
