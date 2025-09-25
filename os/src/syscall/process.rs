@@ -196,7 +196,6 @@ pub fn sys_spawn(_path: *const u8) -> isize {
     );
     let token = current_user_token();
     let path = translated_str(token, _path);
-    // TODO)) 删 - 修改位置 ↓
     if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
         let data = app_inode.read_all();
         let parent = current_task().unwrap();
