@@ -48,3 +48,5 @@ bitflags! {
 
 pub use inode::{list_apps, open_file, OSInode, OpenFlags};
 pub use stdio::{Stdin, Stdout};
+// [INFO] CH6
+pub use inode::{linkat};

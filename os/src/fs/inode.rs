@@ -17,6 +17,7 @@ use lazy_static::*;
 /// inode in memory
 /// A wrapper around a filesystem inode
 /// to implement File trait atop
+/// 对 easy_fs::Inode 的封装
 pub struct OSInode {
     readable: bool,
     writable: bool,
@@ -123,6 +124,14 @@ pub fn open_file(name: &str, flags: OpenFlags) -> Option<Arc<OSInode>> {
             Arc::new(OSInode::new(readable, writable, inode))
         })
     }
+}
+
+/// [INFO] CH6
+/// 在根目录插入一个名字为 new_name，inode_id 和 old_name 文件相同 inode_id 的目录项
+/// 新名字过长会截断
+/// 没有找到 old_name 文件会返回 -1
+pub fn linkat(old_name: &str, new_name: &str) -> isize {
+    ROOT_INODE.linkat(old_name, new_name)
 }
 
 impl File for OSInode {

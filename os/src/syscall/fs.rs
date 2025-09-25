@@ -2,6 +2,8 @@
 use crate::fs::{open_file, OpenFlags, Stat};
 use crate::mm::{translated_byte_buffer, translated_str, UserBuffer};
 use crate::task::{current_task, current_user_token};
+// [INFO] CH6
+use crate::fs::{linkat};
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
@@ -53,6 +55,7 @@ pub fn sys_open(path: *const u8, flags: u32) -> isize {
     let path = translated_str(token, path);
     if let Some(inode) = open_file(path.as_str(), OpenFlags::from_bits(flags).unwrap()) {
         let mut inner = task.inner_exclusive_access();
+        // 如此这般，分配一个 fd
         let fd = inner.alloc_fd();
         inner.fd_table[fd] = Some(inode);
         fd as isize
@@ -71,6 +74,7 @@ pub fn sys_close(fd: usize) -> isize {
     if inner.fd_table[fd].is_none() {
         return -1;
     }
+    // 如此这般，删一个 fd
     inner.fd_table[fd].take();
     0
 }
@@ -88,30 +92,31 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
 
 /// [INFO] CH6
 /// 创建一个文件的一个硬链接
+/// 没有找到 old_name 文件会返回 -1
 /// ! 不考虑新文件路径已经存在的情况
 /// YOUR JOB: Implement linkat.
-pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
+pub fn sys_linkat(old_name: *const u8, new_name: *const u8) -> isize {
     trace!(
         "kernel:pid[{}] sys_linkat",
         current_task().unwrap().pid.0
     );
     let token = current_user_token();
-    let old_name = translated_str(token, _old_name);
-    let new_name = translated_str(token, _new_name);
+    let old_name = translated_str(token, old_name);
+    let new_name = translated_str(token, new_name);
     if old_name == new_name {
         return -1
     }
-
-    -1
+    linkat(old_name.as_str(), new_name.as_str())
 }
 
 /// [INFO] CH6
-/// 取消一个文件路径到文件的链接
+/// 取消一个文件路径到文件的链接  
 /// YOUR JOB: Implement unlinkat.
 pub fn sys_unlinkat(_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_unlinkat",
         current_task().unwrap().pid.0
     );
+
     -1
 }

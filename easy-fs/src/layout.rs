@@ -394,7 +394,7 @@ impl DiskInode {
 }
 /// A directory entry
 /// 目录项作为目录型 DiskInode 的数据存放于 DiskInode 的数据块中，由此可见目录也是文件；
-/// 目录项用 inode_id (inode 区索引号) 记录该目录项的 inode
+/// 目录项用 inode_id (inode 区索引号) 记录该目录项的文件的 DiskInode
 #[repr(C)]
 pub struct DirEntry {
     name: [u8; NAME_LENGTH_LIMIT + 1],
@@ -412,6 +412,7 @@ impl DirEntry {
         }
     }
     /// Crate a directory entry from name and inode number
+    /// 名字过长会截断
     pub fn new(name: &str, inode_id: u32) -> Self {
         let mut bytes = [0u8; NAME_LENGTH_LIMIT + 1];
         bytes[..name.len()].copy_from_slice(name.as_bytes());

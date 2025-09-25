@@ -192,4 +192,45 @@ impl Inode {
         });
         block_cache_sync_all();
     }
+
+    /// [INFO] CH6
+    /// <!> 只被根目录 Inode 调用
+    /// 在根目录插入一个名字为 new_name，inode_id 和 old_name 文件相同 inode_id 的目录项
+    /// 没有找到 old_name 文件会返回 -1
+    pub fn linkat(&self, old_name: &str, new_name: &str) -> isize {
+        let mut fs = self.fs.lock();
+        if let Some(the_inode_id) = self.read_disk_inode(
+            |disk_inode| { self.find_inode_id(old_name, disk_inode) }
+        ) {
+            self.modify_disk_inode(|root_inode| {
+                // append file in the dirent
+                let file_count = (root_inode.size as usize) / DIRENT_SZ;
+                let new_size = (file_count + 1) * DIRENT_SZ;
+                // increase size
+                self.increase_size(new_size as u32, root_inode, &mut fs);
+                // write dirent
+                let dirent = DirEntry::new(new_name, the_inode_id);
+                root_inode.write_at(
+                    file_count * DIRENT_SZ,
+                    dirent.as_bytes(),
+                    &self.block_device,
+                );
+            });
+            block_cache_sync_all();
+            return 0;
+        }
+        -1  // 没有找到 old_name 文件
+    }
+
+    /// [INFO] CH6
+    /// <!> 只被根目录 Inode 调用
+    pub fn unlinkat(&self, name: &str) -> isize {
+        if let Some(the_inode_id) = self.read_disk_inode(
+            |disk_inode| { self.find_inode_id(name, disk_inode) }
+        ) {
+
+        }
+
+        -1
+    }
 }
